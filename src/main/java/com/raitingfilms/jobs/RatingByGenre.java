@@ -11,11 +11,8 @@ import org.apache.spark.api.java.function.PairFunction;
 import scala.Tuple2;
 
 import java.io.Serializable;
-import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.List;
-
-import static com.raitingfilms.TotalTopFilms.KEY_VALUE_PAIRER;
 
 /**
  * Created by kost on 4/17/16.
@@ -109,7 +106,7 @@ public class RatingByGenre {
         //Сортируем по рейтигу и выводим топ 10 самых популярных
         List<Tuple2<String, Integer>> top10Films =  filmRatingPairs.takeOrdered(
                 10,
-                new com.raitingfilms.TotalTopFilms.CountComparator()
+                new TotalTopFilms.CountComparator()
         );
 
         return top10Films;
