@@ -1,4 +1,4 @@
-package com.raitingfilms;
+package com.raitingfilms.jobs;
 
 import com.google.common.base.Optional;
 import org.apache.spark.api.java.JavaPairRDD;

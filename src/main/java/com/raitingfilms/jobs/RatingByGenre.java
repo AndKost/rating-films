@@ -1,9 +1,11 @@
-package com.raitingfilms;
+package com.raitingfilms.jobs;
 
 import com.google.common.base.Optional;
+import com.raitingfilms.Main;
 import org.apache.spark.api.java.JavaPairRDD;
 import org.apache.spark.api.java.JavaRDD;
 import org.apache.spark.api.java.JavaSparkContext;
+import org.apache.spark.api.java.function.Function;
 import org.apache.spark.api.java.function.Function2;
 import org.apache.spark.api.java.function.PairFunction;
 import scala.Tuple2;
@@ -12,6 +14,8 @@ import java.io.Serializable;
 import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.List;
+
+import static com.raitingfilms.TotalTopFilms.KEY_VALUE_PAIRER;
 
 /**
  * Created by kost on 4/17/16.
@@ -23,17 +27,13 @@ public class RatingByGenre {
         this.context = context;
     }
 
-    static enum Genres { unknown, Action, Adventure, Animation, Children, Comedy, Crime, Documentary, Drama, Fantasy,
-        FilmNoir, Horror, Musical, Mystery, Romance, SciFi, Thriller, War, Western }
 
-    public static List<Tuple2<String, Integer>> run(String fpath, String dpath, String genre) {
+
+    public static List<Tuple2<String, Integer>> run(String fpath, String dpath, Main.Genres genre) {
         JavaRDD<String> fileData = context.textFile(fpath);
 
-//        Integer t = RatingByGenre.Genres.valueOf(genre);
-
-
-
-
+        final int shift = 5;
+        final int genreId = genre.ordinal() + shift;
 
         //Парсим все ид и рейтинг
         //Parse u.date text file to pair(id, rating)
@@ -68,36 +68,43 @@ public class RatingByGenre {
         JavaRDD<String> fileFilms = context.textFile(dpath);
 
         //Parst u.item and get pair (id, namefilm)
-        //Лютый костыль переписать
-        //Сначала маппим все а потмо осталвяем только с нужным жанром через другой сет и мап
+        //Сначала маппим все а потом осталвяем только с нужным жанром через другой сет и мап
         JavaPairRDD<Integer, String> filmInfo = fileFilms.mapToPair(
                 new PairFunction<String, Integer, String>() {
                     @Override
                     public Tuple2<Integer, String> call(String s) throws Exception {
                         String[] row = s.split("\\|");
-                        if (row[7].equals("1")) {
+                        if (row[genreId].equals("1")) {
                             Integer filmId = Integer.parseInt(row[0]);
                             String name = row[1];
 
                             return new Tuple2<Integer, String>(filmId, name);
                         }
-                        else return new Tuple2<Integer, String>(0, "0");
+                        else return new Tuple2<Integer, String>(-1,"");
                     }
                 }
         );
-
-
-
+        //Удаляем пустые строки
+        JavaPairRDD<Integer, String> filterfilmInfo = filmInfo.filter (
+            new Function<Tuple2<Integer, String>, Boolean>() {
+                @Override
+                public Boolean call(Tuple2<Integer, String> s) throws Exception {
+                    if (s._1 != -1)
+                        return true;
+                    else
+                        return false;
+                }
+            }
+        );
         //Соединяем сеты leftjoin
-        JavaRDD<Tuple2<String, Optional<Integer>>> leftjoinOutput = filmInfo.leftOuterJoin(filmCounts).values().distinct();
+        JavaRDD<Tuple2<String, Optional<Integer>>> leftjoinOutput = filterfilmInfo.leftOuterJoin(filmCounts).values().distinct();
         //Получили сет "Название фильма" его рейтинг
 
 
         //Модифицируем результат в javaPairRRD
         JavaPairRDD<String, Integer> filmRatingPairs = leftjoinOutput.mapToPair(KEY_VALUE_PAIRER);
 
-        //Тесты
-       // filmRatingPairs.saveAsTextFile("/home/kost/workspace/rating-films/src/main/resources/resultutest2/");
+
 
         //Сортируем по рейтигу и выводим топ 10 самых популярных
         List<Tuple2<String, Integer>> top10Films =  filmRatingPairs.takeOrdered(
