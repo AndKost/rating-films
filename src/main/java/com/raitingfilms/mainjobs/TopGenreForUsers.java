@@ -27,9 +27,7 @@ public class TopGenreForUsers extends Job implements Serializable {
 
         //Parse uData file and get (filmId, <userId, rating>) userId - string for universe saving in mongoDB
         JavaPairRDD<Integer, Tuple2<String, Integer>> filmratingPair = fileData.mapToPair(
-                new PairFunction<String, Integer, Tuple2<String, Integer>>() {
-                    @Override
-                    public Tuple2<Integer, Tuple2<String, Integer>> call(String s) throws Exception {
+                (s) -> {
                         String[] row = s.split("\t");
                         String userId = row[0];
                         Integer filmId = Integer.parseInt(row[1]);
@@ -37,7 +35,6 @@ public class TopGenreForUsers extends Job implements Serializable {
                         Tuple2<String, Integer> tmp = new Tuple2<String, Integer>(userId, rating);
                         return new Tuple2<Integer, Tuple2<String, Integer>>(filmId, tmp);
                     }
-                }
         );
 
 
@@ -45,9 +42,7 @@ public class TopGenreForUsers extends Job implements Serializable {
         JavaRDD<String> fileUItem = context.textFile(pathItem);
 
         JavaPairRDD<Integer, String> filmGenrePair = fileUItem.mapToPair(
-                new PairFunction<String, Integer, String>() {
-                    @Override
-                    public Tuple2<Integer, String> call(String s) throws Exception {
+                (s) -> {
                         String[] row = s.split("\\|");
                         Integer filmId = Integer.parseInt(row[0]);
                         //Separate by genre
@@ -108,7 +103,6 @@ public class TopGenreForUsers extends Job implements Serializable {
 
                         return new Tuple2<Integer, String>(filmId, "Western");
                     }
-                }
         );
 
 
@@ -118,17 +112,13 @@ public class TopGenreForUsers extends Job implements Serializable {
 
         //Make key (<genre, userid> rating)
         JavaPairRDD<Tuple2<String, String>, Integer> filmRatingPairs = joinGenreKey.mapToPair(
-                new PairFunction<Tuple2<String, Tuple2<String, Integer>>, Tuple2<String, String>, Integer >() {
-                    @Override
-                    public Tuple2<Tuple2<String, String>, Integer> call(Tuple2<String, Tuple2<String, Integer>> s) throws Exception {
+                (s) -> {
                         String genre = s._1();
                         String userId = s._2()._1;
                         Integer rating = s._2._2;
                         Tuple2<String, String> tmpTuple = new Tuple2<String, String>(userId, genre);
                         return new Tuple2<Tuple2<String, String>, Integer>(tmpTuple, rating);
-
                     }
-                }
 
         );
 
@@ -138,16 +128,13 @@ public class TopGenreForUsers extends Job implements Serializable {
 
         //Make key userId get (userId, <genre, avgRating>)
         JavaPairRDD<String, Tuple2<String, AvgCount>> userIdKeyAvgRat = avgCounts.mapToPair(
-                new PairFunction<Tuple2<Tuple2<String, String>, AvgCount>, String, Tuple2<String, AvgCount>>() {
-                    @Override
-                    public Tuple2<String, Tuple2<String, AvgCount>> call(Tuple2<Tuple2<String, String>, AvgCount> s) throws Exception {
+                (s) -> {
                         String userId = s._1()._1;
                         String genre = s._1()._2;
                         AvgCount rating = s._2;
                         Tuple2<String, AvgCount> tmpTuple = new Tuple2<String, AvgCount>(genre, rating);
                         return new Tuple2<String, Tuple2<String, AvgCount>>(userId, tmpTuple);
                     }
-                }
         );
 
         //Group by key

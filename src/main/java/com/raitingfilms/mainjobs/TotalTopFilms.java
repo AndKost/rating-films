@@ -31,15 +31,12 @@ public class TotalTopFilms extends Job implements Serializable {
 
         //Parse u.date text file to pair(id, rating)
         JavaPairRDD<Integer, Integer> filmRating = file.mapToPair(
-                new PairFunction<String, Integer, Integer>() {
-                    @Override
-                    public Tuple2<Integer, Integer> call(String s) throws Exception {
+                (s) -> {
                         String[] row = s.split("\t");
                         Integer filmId = Integer.parseInt(row[1]);
                         Integer rating = Integer.parseInt(row[2]);
                         return new Tuple2<Integer, Integer>(filmId, rating);
                     }
-                }
         );
 
         //Calculate Average for each film
@@ -50,21 +47,18 @@ public class TotalTopFilms extends Job implements Serializable {
 
         //Parse u.item and get pair (id, namefilm)
         JavaPairRDD<Integer, String> filmInfo = fileFilms.mapToPair(
-                new PairFunction<String, Integer, String>() {
-                    @Override
-                    public Tuple2<Integer, String> call(String s) throws Exception {
+                (s) -> {
                         String[] row = s.split("\\|");
                         Integer filmId = Integer.parseInt(row[0]);
                         String name = row[1];
                         return new Tuple2<Integer, String>(filmId, name);
                     }
-                }
+
         );
 
 
         //Join and get pair (filmName, AvgCount) AvgCount contain average
         JavaRDD<Tuple2<String, AvgCount>> joinPair = filmInfo.join(avgCounts).values();
-
 
         //Sort by rating and take 10 films
         List<Tuple2<String, AvgCount>> topFilms = joinPair.takeOrdered(

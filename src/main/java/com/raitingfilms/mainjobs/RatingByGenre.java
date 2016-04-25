@@ -25,15 +25,12 @@ public class RatingByGenre extends Job implements Serializable {
 
         //Parse u.date text file to pair(idFilm, rating)
         JavaPairRDD<Integer, Integer> filmRating = fileData.mapToPair(
-                new PairFunction<String, Integer, Integer>() {
-                    @Override
-                    public Tuple2<Integer, Integer> call(String s) throws Exception {
+                (s) -> {
                         String[] row = s.split("\t");
                         Integer filmId = Integer.parseInt(row[1]);
                         Integer rating = Integer.parseInt(row[2]);
                         return new Tuple2<Integer, Integer>(filmId, rating);
                     }
-                }
         );
 
         //Calculate Average for each film
@@ -44,9 +41,7 @@ public class RatingByGenre extends Job implements Serializable {
 
         //Parse u.item and get pair (id, <namefilm, genre>)
         JavaPairRDD<Integer, Tuple2<String, String>> filmGenrePair = fileItems.mapToPair(
-                new PairFunction<String, Integer, Tuple2<String, String>>() {
-                    @Override
-                    public Tuple2<Integer, Tuple2<String, String>> call(String s) throws Exception {
+                (s) -> {
                         String[] row = s.split("\\|");
                         Integer filmId = Integer.parseInt(row[0]);
                         String nameFilm = row[1];
@@ -111,7 +106,6 @@ public class RatingByGenre extends Job implements Serializable {
 
                         return new Tuple2<Integer, Tuple2<String, String>>(filmId, outTuple);
                     }
-                }
         );
 
         //Join pairs and get (<nameFilm, genre>, avgrating)
@@ -119,9 +113,7 @@ public class RatingByGenre extends Job implements Serializable {
 
         //Make genre is key
         JavaPairRDD<String, Tuple2<String, AvgCount>> genreKey = joinPair.mapToPair(
-            new PairFunction<Tuple2<Tuple2<String,String>,AvgCount>, String, Tuple2<String, AvgCount>>() {
-                @Override
-                public Tuple2<String, Tuple2<String, AvgCount>> call(Tuple2<Tuple2<String, String>, AvgCount> s) throws Exception {
+                (s) -> {
                         String genre = s._1()._2;
                         AvgCount avg = s._2;
                         String nameFilm = s._1._1;
@@ -129,7 +121,6 @@ public class RatingByGenre extends Job implements Serializable {
                     return new Tuple2<String, Tuple2<String, AvgCount>>(genre, tmpTuple);
 
                 }
-            }
         );
 
         //Group by key

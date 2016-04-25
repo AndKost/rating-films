@@ -37,6 +37,7 @@ public class JobConroller {
     public void calcTotalTopFilms() throws ParseException {
         TotalTopFilms job = new TotalTopFilms(context);
         List<Tuple2<String, AvgCount>> res = job.run(pathToData, pathToFilmInfo);
+        System.out.println(res);
         saver.saveList(res, "totalTopFilm");
     }
 
