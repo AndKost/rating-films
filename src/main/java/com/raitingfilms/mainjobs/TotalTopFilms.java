@@ -1,10 +1,9 @@
 package com.raitingfilms.mainjobs;
 
-import com.google.common.base.Optional;
+import com.raitingfilms.mainjobs.extra.AvgCount;
 import org.apache.spark.api.java.JavaPairRDD;
 import org.apache.spark.api.java.JavaRDD;
 import org.apache.spark.api.java.JavaSparkContext;
-import org.apache.spark.api.java.function.Function2;
 import org.apache.spark.api.java.function.PairFunction;
 import scala.Tuple2;
 
@@ -17,23 +16,25 @@ import java.util.List;
  */
 
 //Total top10 rating
-public class TotalTopFilms {
+public class TotalTopFilms extends Job implements Serializable {
 
-    private static JavaSparkContext context;
+    //override variable
+    private int TOP_COUNT = 10;
 
     public TotalTopFilms(JavaSparkContext context) {
-        this.context = context;
+        super(context);
     }
 
-    public static List<Tuple2<String, Integer>> run(String fpath, String dpath) {
-        JavaRDD<String> file = context.textFile(fpath);
+    public List<Tuple2<String, AvgCount>> run(String pathData, String pathItem) {
+
+        JavaRDD<String> file = context.textFile(pathData);
 
         //Parse u.date text file to pair(id, rating)
-        JavaPairRDD<Integer, Integer> filmratingPair = file.mapToPair(
+        JavaPairRDD<Integer, Integer> filmRating = file.mapToPair(
                 new PairFunction<String, Integer, Integer>() {
                     @Override
                     public Tuple2<Integer, Integer> call(String s) throws Exception {
-                        String[] row = s.split("	");
+                        String[] row = s.split("\t");
                         Integer filmId = Integer.parseInt(row[1]);
                         Integer rating = Integer.parseInt(row[2]);
                         return new Tuple2<Integer, Integer>(filmId, rating);
@@ -41,20 +42,13 @@ public class TotalTopFilms {
                 }
         );
 
-        //Count rating for ech film, pair(id, totalrating)
-        JavaPairRDD<Integer, Integer> filmCounts = filmratingPair.reduceByKey(
-                new Function2<Integer, Integer, Integer>() {
-                    @Override
-                    public Integer call(Integer i1, Integer i2) {
-                        return i1 + i2;
-                    }
-                }
-        );
+        //Calculate Average for each film
+        JavaPairRDD<Integer, AvgCount> avgCounts =
+                filmRating.combineByKey(createAcc, addAndCount, combine);
 
+        JavaRDD<String> fileFilms = context.textFile(pathItem);
 
-        JavaRDD<String> fileFilms = context.textFile(dpath);
-
-        //Parst u.item and get pair (id, namefilm)
+        //Parse u.item and get pair (id, namefilm)
         JavaPairRDD<Integer, String> filmInfo = fileFilms.mapToPair(
                 new PairFunction<String, Integer, String>() {
                     @Override
@@ -68,40 +62,26 @@ public class TotalTopFilms {
         );
 
 
-        //Соединяем сеты leftjoin
-        JavaRDD<Tuple2<String, Optional<Integer>>> leftjoinOutput = filmInfo.leftOuterJoin(filmCounts).values().distinct();
-        //Получили сет "Название фильма" его рейтинг
+        //Join and get pair (filmName, AvgCount) AvgCount contain average
+        JavaRDD<Tuple2<String, AvgCount>> joinPair = filmInfo.join(avgCounts).values();
 
 
-        //Модифицируем результат в javaPairRRD
-        JavaPairRDD<String, Integer> filmRatingPairs = leftjoinOutput.mapToPair(KEY_VALUE_PAIRER);
-
-
-
-        //Сортируем по рейтигу и выводим топ 10 самых популярных
-        List<Tuple2<String, Integer>> top10Films =  filmRatingPairs.takeOrdered(
-                10,
+        //Sort by rating and take 10 films
+        List<Tuple2<String, AvgCount>> topFilms = joinPair.takeOrdered(
+                TOP_COUNT,
                 new CountComparator()
         );
 
-        return top10Films;
+        return topFilms;
     }
 
-    public static class CountComparator implements Comparator<Tuple2<String, Integer>>, Serializable {
+    private class CountComparator implements Comparator<Tuple2<String, AvgCount>>, Serializable {
         @Override
-        public int compare(Tuple2<String, Integer> o1, Tuple2<String, Integer> o2){
-            return o2._2()- o1._2();
+        public int compare(Tuple2<String, AvgCount> o1, Tuple2<String, AvgCount> o2){
+
+            if (o2._2().avg() < o1._2().avg()) return -1;
+            if (o2._2().avg() > o1._2().avg()) return 1;
+            return 0;
         }
     }
-
-    //Convert javaRRD to javaPairRRD
-    public static final PairFunction<Tuple2<String, Optional<Integer>>, String, Integer> KEY_VALUE_PAIRER =
-            new PairFunction<Tuple2<String, Optional<Integer>>, String, Integer>() {
-                public Tuple2<String, Integer> call(
-                        Tuple2<String, Optional<Integer>> a) throws Exception {
-                    // a._2.isPresent()
-                    return new Tuple2<String, Integer>(a._1, a._2.get());
-                }
-    };
-
 }

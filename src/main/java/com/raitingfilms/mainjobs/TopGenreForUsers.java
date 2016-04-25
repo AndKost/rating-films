@@ -1,121 +1,48 @@
 package com.raitingfilms.mainjobs;
 
-import com.google.common.base.Optional;
+import com.raitingfilms.mainjobs.extra.AvgCount;
 import org.apache.spark.api.java.JavaPairRDD;
 import org.apache.spark.api.java.JavaRDD;
 import org.apache.spark.api.java.JavaSparkContext;
-
-import org.apache.spark.api.java.function.Function2;
 import org.apache.spark.api.java.function.PairFunction;
-
 import scala.Tuple2;
 
-import java.util.*;
+import java.io.Serializable;
+import java.util.Map;
 
 /**
  * Created by kost on 4/19/16.
  */
-public class TopGenreForUsers {
-
-    private static JavaSparkContext context;
+public class TopGenreForUsers extends Job implements Serializable {
 
     public TopGenreForUsers(JavaSparkContext context) {
-        this.context = context;
+        super(context);
     }
 
 
-    public static final PairFunction<Tuple2<Tuple2<Integer, Integer>, Optional<String>>,    Tuple2<Integer, String>, Integer> KEY_VALUE_PAIRER =
-            new PairFunction<Tuple2<Tuple2<Integer, Integer>, Optional<String>>, Tuple2<Integer, String>, Integer>() {
-                public Tuple2<Tuple2<Integer, String>, Integer> call(Tuple2<Tuple2<Integer, Integer>, Optional<String>> a) throws Exception {
+    public Map<String, Iterable<String>> run(String pathData, String pathItem) {
 
-                    Integer rating = a._1()._2;
-                    Tuple2<Integer, String> t = new Tuple2<Integer, String>(a._1()._1, a._2().get());
+        //Parse uData file and get (filmId, <userId, rating>)
+        JavaRDD<String> fileData = context.textFile(pathData);
 
-
-                    return new Tuple2<Tuple2<Integer, String>, Integer>(t, rating);
-                }
-
-
-            };
-
-
-    public static final PairFunction<Tuple2<Tuple2<Integer, String>, Integer>,  Integer, Tuple2<String, Integer>> KEY_VALUE_PAIRER2 =
-            new PairFunction<Tuple2<Tuple2<Integer, String>, Integer>, Integer, Tuple2<String, Integer>>() {
-                public Tuple2<Integer, Tuple2<String, Integer>> call(Tuple2<Tuple2<Integer, String>, Integer> a) throws Exception {
-
-                    Integer userid = a._1()._1;
-
-                    Tuple2<String, Integer> t = new Tuple2<String, Integer>(a._1()._2, a._2());
-
-
-                    return new Tuple2<Integer, Tuple2<String, Integer>>(userid, t);
-                }
-
-
-            };
-
-
-    public static final PairFunction<Tuple2<Integer, Iterable<Tuple2<String, Integer>>>,  Integer, Iterable<Tuple2<String, Integer>>> KEY_VALUE_PAIRER3 =
-            new PairFunction<Tuple2<Integer, Iterable<Tuple2<String, Integer>>>, Integer, Iterable<Tuple2<String, Integer>>>() {
-                public Tuple2<Integer, Iterable<Tuple2<String, Integer>>> call(Tuple2<Integer, Iterable<Tuple2<String, Integer>>> a) throws Exception {
-
-                    Integer userId = a._1();
-
-
-                    //Сортируем и выбираем 5 максимальных по рейтингу
-                    Iterable<Tuple2<String, Integer>> it = (Iterable<Tuple2<String, Integer>>) a._2();
-
-                    List<Tuple2<String, Integer>> lst = new ArrayList<Tuple2<String, Integer>>();
-                    Iterator<Tuple2<String, Integer>> iter = it.iterator();
-
-                    while (iter.hasNext()) {
-                        lst.add(iter.next());
-                    }
-
-                    //Сортируем второй элемент
-                    Collections.sort(lst, new Comparator<Tuple2<String, Integer>>() {
-                        public int compare(Tuple2<String, Integer> o1, Tuple2<String, Integer> o2) {
-                            return o2._2 - o1._2;
-                        }
-                    });
-                    //Проверка если есть 3 жанра то 3 если меньше то ничего не делать
-                    if (lst.size() > 6)
-                    lst= lst.subList(0,5);
-
-                    Iterable<Tuple2<String, Integer>> l = lst;
-                    //Tuple2<String, Integer> t = new Tuple2<String, Integer>(a._1()._2, a._2());
-
-
-                    return new Tuple2<Integer, Iterable<Tuple2<String, Integer>>>(userId, l);
-                }
-
-
-            };
-
-
-    //Считываем из data idUser idFilm rating
-    public static void run(String uData, String uItem) {
-        JavaRDD<String> fileData = context.textFile(uData);
-
-        //Parse u.date text file to pair(idFilm, pair(userId, rating)
-        JavaPairRDD<Integer, Tuple2<Integer, Integer>> filmratingPair = fileData.mapToPair(
-                new PairFunction<String, Integer, Tuple2<Integer, Integer>>() {
+        //Parse uData file and get (filmId, <userId, rating>) userId - string for universe saving in mongoDB
+        JavaPairRDD<Integer, Tuple2<String, Integer>> filmratingPair = fileData.mapToPair(
+                new PairFunction<String, Integer, Tuple2<String, Integer>>() {
                     @Override
-                    public Tuple2<Integer, Tuple2<Integer, Integer>> call(String s) throws Exception {
-                        String[] row = s.split("	");
-                        Integer userId = Integer.parseInt(row[0]);
+                    public Tuple2<Integer, Tuple2<String, Integer>> call(String s) throws Exception {
+                        String[] row = s.split("\t");
+                        String userId = row[0];
                         Integer filmId = Integer.parseInt(row[1]);
                         Integer rating = Integer.parseInt(row[2]);
-                        Tuple2<Integer, Integer> tmp = new Tuple2<Integer, Integer>(userId, rating);
-                        return new Tuple2<Integer, Tuple2<Integer, Integer>>(filmId, tmp);
+                        Tuple2<String, Integer> tmp = new Tuple2<String, Integer>(userId, rating);
+                        return new Tuple2<Integer, Tuple2<String, Integer>>(filmId, tmp);
                     }
                 }
         );
 
 
         //Parse from item idFilm genre get pair (idFilm, genre)
-
-        JavaRDD<String> fileUItem = context.textFile(uItem);
+        JavaRDD<String> fileUItem = context.textFile(pathItem);
 
         JavaPairRDD<Integer, String> filmGenrePair = fileUItem.mapToPair(
                 new PairFunction<String, Integer, String>() {
@@ -186,37 +113,50 @@ public class TopGenreForUsers {
 
 
 
-        //Left join replace idFilm to genre
-        JavaRDD<Tuple2<Tuple2<Integer, Integer>, Optional<String>>> leftjoinOutput = filmratingPair.leftOuterJoin(filmGenrePair).values().distinct();
+        //Left join replace idFilm to genre get (genre, <userid rating>)
+        JavaRDD<Tuple2<String, Tuple2<String, Integer> >> joinGenreKey = filmGenrePair.join(filmratingPair).values();
 
-        //Модифицируем результат в javaPairRRD
-        //JavaPairRDD<Tuple2<Integer, Integer>, String> filmRatingPairs = leftjoinOutput.mapToPair(KEY_VALUE_PAIRER);
-        JavaPairRDD<Tuple2<Integer, String>, Integer> filmRatingPairs = leftjoinOutput.mapToPair(KEY_VALUE_PAIRER);
-
-        //Считаем суммы по рейтингам
-        JavaPairRDD<Tuple2<Integer, String>, Integer> filmRatingCounts = filmRatingPairs.reduceByKey(
-                new Function2<Integer, Integer, Integer>() {
+        //Make key (<genre, userid> rating)
+        JavaPairRDD<Tuple2<String, String>, Integer> filmRatingPairs = joinGenreKey.mapToPair(
+                new PairFunction<Tuple2<String, Tuple2<String, Integer>>, Tuple2<String, String>, Integer >() {
                     @Override
-                    public Integer call(Integer i1, Integer i2) {
-                        return i1 + i2;
+                    public Tuple2<Tuple2<String, String>, Integer> call(Tuple2<String, Tuple2<String, Integer>> s) throws Exception {
+                        String genre = s._1();
+                        String userId = s._2()._1;
+                        Integer rating = s._2._2;
+                        Tuple2<String, String> tmpTuple = new Tuple2<String, String>(userId, genre);
+                        return new Tuple2<Tuple2<String, String>, Integer>(tmpTuple, rating);
+
+                    }
+                }
+
+        );
+
+        //Calculate average rating
+        JavaPairRDD<Tuple2<String, String>, AvgCount> avgCounts =
+                filmRatingPairs.combineByKey(createAcc, addAndCount, combine);
+
+        //Make key userId get (userId, <genre, avgRating>)
+        JavaPairRDD<String, Tuple2<String, AvgCount>> userIdKeyAvgRat = avgCounts.mapToPair(
+                new PairFunction<Tuple2<Tuple2<String, String>, AvgCount>, String, Tuple2<String, AvgCount>>() {
+                    @Override
+                    public Tuple2<String, Tuple2<String, AvgCount>> call(Tuple2<Tuple2<String, String>, AvgCount> s) throws Exception {
+                        String userId = s._1()._1;
+                        String genre = s._1()._2;
+                        AvgCount rating = s._2;
+                        Tuple2<String, AvgCount> tmpTuple = new Tuple2<String, AvgCount>(genre, rating);
+                        return new Tuple2<String, Tuple2<String, AvgCount>>(userId, tmpTuple);
                     }
                 }
         );
 
+        //Group by key
+        JavaPairRDD<String, Iterable<Tuple2<String, AvgCount>>> filmsGroupByAge = userIdKeyAvgRat.groupByKey();
 
+        //Sort and get top genre
+        JavaPairRDD<String, Iterable<String>> result = filmsGroupByAge.mapToPair(SORT_AND_TAKE);
 
-        //cgroup берем для каждого ключа его жанры по каждому
-        //JavaPairRDD<Tuple2<Integer, String>, Iterable<Integer>> filmRatingPairsGroupBykey = filmRatingCounts.groupByKey();
-
-        //Переделыввем пару в pair (userId pair(string rating))
-        JavaPairRDD<Integer, Iterable<Tuple2<String, Integer>>> filmRatingPairsOther = filmRatingCounts.mapToPair(KEY_VALUE_PAIRER2).groupByKey();
-
-
-        //Пытаемся оставить топ 5 записей для каждлго ид
-        JavaPairRDD<Integer, Iterable<Tuple2<String, Integer>>> tmptmp = filmRatingPairsOther.mapToPair(KEY_VALUE_PAIRER3);
-
-
-        tmptmp.saveAsTextFile("/home/kost/workspace/rating-films/src/main/resources/resultutest2/");
+        return result.collectAsMap();
     }
 
 
