@@ -1,10 +1,6 @@
 package com.raitingfilms;
 
-import com.raitingfilms.mainjobs.extra.AvgCount;
-import scala.Tuple2;
-
 import java.text.ParseException;
-import java.util.List;
 
 public class Main {
 

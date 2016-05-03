@@ -3,7 +3,6 @@ package com.raitingfilms.optionjobs;
 import com.raitingfilms.mainjobs.RatingJob;
 import com.raitingfilms.mainjobs.extra.AvgCount;
 import org.apache.spark.api.java.JavaSparkContext;
-import org.apache.spark.api.java.function.Function2;
 import org.apache.spark.api.java.function.PairFunction;
 import scala.Tuple2;
 
