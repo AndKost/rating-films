@@ -4,11 +4,9 @@ import com.raitingfilms.mainjobs.extra.AvgCount;
 import org.apache.spark.api.java.JavaPairRDD;
 import org.apache.spark.api.java.JavaRDD;
 import org.apache.spark.api.java.JavaSparkContext;
-import org.apache.spark.api.java.function.PairFunction;
 import scala.Tuple2;
 
 import java.io.Serializable;
-import java.util.Comparator;
 import java.util.List;
 
 /**
@@ -16,10 +14,10 @@ import java.util.List;
  */
 
 //Total top10 rating
-public class TotalTopFilms extends Job implements Serializable {
+public class TotalTopFilms extends RatingJob implements Serializable {
 
-    //override variable
-    private int TOP_COUNT = 10;
+    //Override number of films
+    private static int TOP_COUNT = 10;
 
     public TotalTopFilms(JavaSparkContext context) {
         super(context);
@@ -27,55 +25,27 @@ public class TotalTopFilms extends Job implements Serializable {
 
     public List<Tuple2<String, AvgCount>> run(String pathData, String pathItem) {
 
-        JavaRDD<String> file = context.textFile(pathData);
+        JavaRDD<String> fileData = context.textFile(pathData);
 
-        //Parse u.date text file to pair(id, rating)
-        JavaPairRDD<Integer, Integer> filmRating = file.mapToPair(
-                (s) -> {
-                        String[] row = s.split("\t");
-                        Integer filmId = Integer.parseInt(row[1]);
-                        Integer rating = Integer.parseInt(row[2]);
-                        return new Tuple2<Integer, Integer>(filmId, rating);
-                    }
-        );
+        //Parse u.date text file to pair(filmId, startRating), startRating is avgCount class contain sum and number for each film.
+        // It done for get and compare average rating
+        JavaPairRDD<Integer, AvgCount> filmIdRating = fileData.mapToPair(mapUdataFilmIdAvgRat);
 
-        //Calculate Average for each film
-        JavaPairRDD<Integer, AvgCount> avgCounts =
-                filmRating.combineByKey(createAcc, addAndCount, combine);
+        //Calculate average rating for each film
+        JavaPairRDD<Integer, AvgCount> avgCounts = filmIdRating.reduceByKey(reduceByKeyAvgRating);
 
-        JavaRDD<String> fileFilms = context.textFile(pathItem);
+        JavaRDD<String> fileItem = context.textFile(pathItem);
 
-        //Parse u.item and get pair (id, namefilm)
-        JavaPairRDD<Integer, String> filmInfo = fileFilms.mapToPair(
-                (s) -> {
-                        String[] row = s.split("\\|");
-                        Integer filmId = Integer.parseInt(row[0]);
-                        String name = row[1];
-                        return new Tuple2<Integer, String>(filmId, name);
-                    }
+        //Parse u.item text file and get pair (filmId, filmTitle)
+        JavaPairRDD<Integer, String> filmName = fileItem.mapToPair(mapUitemFilmIdTitle);
 
-        );
+        //Join for change filmId to title and get pair (filmTitle, average rating for each film)
+        JavaRDD<Tuple2<String, AvgCount>> joinPair = filmName.join(avgCounts).values();
 
-
-        //Join and get pair (filmName, AvgCount) AvgCount contain average
-        JavaRDD<Tuple2<String, AvgCount>> joinPair = filmInfo.join(avgCounts).values();
-
-        //Sort by rating and take 10 films
-        List<Tuple2<String, AvgCount>> topFilms = joinPair.takeOrdered(
-                TOP_COUNT,
-                new CountComparator()
-        );
+        //Sort by average rating and take 10 films
+        List<Tuple2<String, AvgCount>> topFilms = joinPair.takeOrdered(TOP_COUNT, new filmComparator());
 
         return topFilms;
     }
 
-    private class CountComparator implements Comparator<Tuple2<String, AvgCount>>, Serializable {
-        @Override
-        public int compare(Tuple2<String, AvgCount> o1, Tuple2<String, AvgCount> o2){
-
-            if (o2._2().avg() < o1._2().avg()) return -1;
-            if (o2._2().avg() > o1._2().avg()) return 1;
-            return 0;
-        }
-    }
 }

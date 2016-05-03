@@ -1,8 +1,5 @@
 package com.raitingfilms.mainjobs.extra;
 
-import org.apache.spark.api.java.JavaPairRDD;
-import org.apache.spark.api.java.function.Function;
-import org.apache.spark.api.java.function.Function2;
 import scala.Serializable;
 
 /**
@@ -10,25 +7,24 @@ import scala.Serializable;
  */
 public class AvgCount implements Serializable {
 
+    public int total;
+    public int num;
+
     public AvgCount(int total, int num) {
-        total_ = total;
-        num_ = num;
+        this.total = total;
+        this.num = num;
     }
 
-    public int total_;
+    public float avg() {
+        return total / (float) num;
+    }
 
     @Override
     public String toString() {
         return "AvgCount{" +
-                "total_=" + total_ +
-                ", num_=" + num_ +
+                "total_=" + total +
+                ", num_=" + num +
                 '}';
-    }
-
-    public int num_;
-
-    public float avg() {
-        return total_ / (float) num_;
     }
 };
 

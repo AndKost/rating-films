@@ -4,7 +4,6 @@ import com.raitingfilms.mainjobs.extra.AvgCount;
 import org.apache.spark.api.java.JavaPairRDD;
 import org.apache.spark.api.java.JavaRDD;
 import org.apache.spark.api.java.JavaSparkContext;
-import org.apache.spark.api.java.function.PairFunction;
 import scala.Tuple2;
 
 import java.io.Serializable;
@@ -15,7 +14,7 @@ import java.util.Map;
  */
 
 //Top films by ages
-public class TopFilmsByAge extends Job implements Serializable {
+public class TopFilmsByAge extends RatingJob implements Serializable {
 
     public TopFilmsByAge(JavaSparkContext context) {
         super(context);
@@ -23,121 +22,73 @@ public class TopFilmsByAge extends Job implements Serializable {
 
     public Map<String, Iterable<String>> run(String pathData, String pathItem, String pathUser) {
 
-        //Parse u.data to (ItemId <UserID rating>)
+        //Parse u.data text file and get pair (filmId <userID, startRating>) startRating is avgCount class contain rating and number
+        //for calculate and compare average rating for each film
         JavaRDD<String> fileData = context.textFile(pathData);
 
-        JavaPairRDD<Integer, Tuple2<Integer, Integer>> filmratingPair = fileData.mapToPair(
-                (s) -> {
-                        String[] row = s.split("\t");
-                        Integer userId = Integer.parseInt(row[0]);
-                        Integer filmId = Integer.parseInt(row[1]);
-                        Integer rating = Integer.parseInt(row[2]);
-                        Tuple2<Integer, Integer> tmp = new Tuple2<Integer, Integer>(userId, rating);
-                        return new Tuple2<Integer, Tuple2<Integer, Integer>>(filmId, tmp);
-                    }
-        );
+        JavaPairRDD<Integer, Tuple2<Integer, AvgCount>> filmRatingPair = fileData.mapToPair(mapUdataFilmIdIntUserIdRat);
 
         JavaRDD<String> fileItems = context.textFile(pathItem);
 
-        //Parse u.item and get pair (idFilm, namefilm)
-        JavaPairRDD<Integer, String> filmNamePair = fileItems.mapToPair(
-                (s) -> {
-                        String[] row = s.split("\\|");
-                        Integer filmId = Integer.parseInt(row[0]);
-                        String nameFilm = row[1];
-                        return new Tuple2<Integer, String>(filmId, nameFilm);
-                    }
-        );
+        //Parse u.item text file and get pair (filmId, filmTitle)
+        JavaPairRDD<Integer, String> filmIdTitlePair = fileItems.mapToPair(mapUitemFilmIdTitle);
 
-        //Joint and get pair (nameFilm <userId, rating>)
-        JavaRDD<Tuple2<String, Tuple2<Integer, Integer>>> joinNameFilms = filmNamePair.join(filmratingPair).values();
+        //Join for change filmId to filmTitle and get pair (filmTitle, <userId, startRating>)
+        JavaRDD<Tuple2<String, Tuple2<Integer, AvgCount>>> joinNameFilms = filmIdTitlePair.join(filmRatingPair).values();
 
-        //Make user id is key (userId <nameFilm, rating>)
-        JavaPairRDD<Integer, Tuple2<String, Integer>> userKey = joinNameFilms.mapToPair(
-                (s) -> {
-                        String nameFilm = s._1();
-                        Integer rating = s._2()._2;
-                        Integer userId = s._2()._1;
-                        Tuple2<String, Integer> tmpTuple = new Tuple2<String, Integer>(nameFilm, rating);
-                        return new Tuple2<Integer, Tuple2<String, Integer>>(userId, tmpTuple);
-                    }
-        );
-
-
+        //Make userId is key, get pair(userId <filmTitle, startRating>)
+        JavaPairRDD<Integer, Tuple2<String, AvgCount>> userKey = joinNameFilms.mapToPair(convertToIntKeyStrRat);
 
         JavaRDD<String> fileUser = context.textFile(pathUser);
 
-        //Parse and get pair (userid, ageCategory)
+        //Parse u.user text file and get pair (userId, ageCategory)
         JavaPairRDD<Integer, String> userAgePair = fileUser.mapToPair(
                 (s) -> {
                         String[] row = s.split("\\|");
                         Integer userId = Integer.parseInt(row[0]);
                         Integer age = Integer.parseInt(row[1]);
 
-                        //Разбиваем по возрастным группам
+                        //Split record by group age
                         if (age > 0 && age <= 10)
-                            return new Tuple2<Integer, String>(userId, "0-10");
-                        if (age > 10 && age <= 20)
-                            return new Tuple2<Integer, String>(userId, "10-20");
-                        if (age > 20 && age <= 30)
-                            return new Tuple2<Integer, String>(userId, "20-30");
-                        if (age > 30 && age <= 40)
-                            return new Tuple2<Integer, String>(userId, "30-40");
-                        if (age > 40 && age <= 50)
-                            return new Tuple2<Integer, String>(userId, "40-50");
-                        if (age > 50 && age <= 60)
-                            return new Tuple2<Integer, String>(userId, "50-60");
-                        if (age > 60 && age <= 70)
-                            return new Tuple2<Integer, String>(userId, "60-70");
-                        if (age > 70 && age <= 80)
-                            return new Tuple2<Integer, String>(userId, "70-80");
-
-                        return new Tuple2<Integer, String>(userId, "80-90");
+                            return new Tuple2<>(userId, "0-10");
+                        else if (age > 10 && age <= 20)
+                            return new Tuple2<>(userId, "10-20");
+                        else if (age > 20 && age <= 30)
+                            return new Tuple2<>(userId, "20-30");
+                        else if (age > 30 && age <= 40)
+                            return new Tuple2<>(userId, "30-40");
+                        else if (age > 40 && age <= 50)
+                            return new Tuple2<>(userId, "40-50");
+                        else if (age > 50 && age <= 60)
+                            return new Tuple2<>(userId, "50-60");
+                        else if (age > 60 && age <= 70)
+                            return new Tuple2<>(userId, "60-70");
+                        else if (age > 70 && age <= 80)
+                            return new Tuple2<>(userId, "70-80");
+                        else
+                            return new Tuple2<>(userId, "80-90");
                     }
         );
 
-        //Join and get (Age <filmName rating>)
-        JavaRDD<Tuple2<String, Tuple2<String, Integer>>> joinAgeUserKey = userAgePair.join(userKey).values();
+        //Join for change userId to age category and get (AgeCategory <filmTitle startRating>)
+        JavaRDD<Tuple2<String, Tuple2<String, AvgCount>>> joinAgeUserKey = userAgePair.join(userKey).values();
 
+        //Make key <age, filmTitle> for calculate average rating, get pair  (<AgeCategory, filmTitleame> startRating)
+        JavaPairRDD<Tuple2<String, String>, AvgCount> forCalcRat = joinAgeUserKey.mapToPair(convertToStr1Str2KeyRat);
 
-        //Make pair (<Age, filmName> rating) for calculate avg rating
-        JavaPairRDD<Tuple2<String, String>, Integer> forCalcRat = joinAgeUserKey.mapToPair(
-                (s) -> {
-                        String age = s._1();
-                        String nameFilm = s._2()._1;
-                        Integer rating = s._2._2;
-                        Tuple2<String, String> tmpTuple = new Tuple2<String, String>(nameFilm, age);
-                        return new Tuple2<Tuple2<String, String>, Integer>(tmpTuple, rating);
-                    }
-        );
+        //Calculate average rating for each film
+        JavaPairRDD<Tuple2<String, String>, AvgCount> avgCounts = forCalcRat.reduceByKey(reduceByKeyAvgRating);
 
+        //Make key age and get pair (ageCategory, <filmTitle, averageRating>)
+        JavaPairRDD<String, Tuple2<String, AvgCount>> ageKeyAvgRat = avgCounts.mapToPair(convertToStr1KeyStrRat);
 
-        //Calculate average rating
-        JavaPairRDD<Tuple2<String, String>, AvgCount> avgCounts =
-                forCalcRat.combineByKey(createAcc, addAndCount, combine);
-
-        //Make key age get (age, <nameFilm, avgRating>)
-        JavaPairRDD<String, Tuple2<String, AvgCount>> ageKeyAvgRat = avgCounts.mapToPair(
-                (s) -> {
-                        String age = s._1()._2;
-                        String nameFilm = s._1()._1;
-                        AvgCount rating = s._2;
-                        Tuple2<String, AvgCount> tmpTuple = new Tuple2<String, AvgCount>(nameFilm, rating);
-                        return new Tuple2<String, Tuple2<String, AvgCount>>(age, tmpTuple);
-                    }
-        );
-
-        //Group by key
+        //Collect films by age category
         JavaPairRDD<String, Iterable<Tuple2<String, AvgCount>>> filmsGroupByAge = ageKeyAvgRat.groupByKey();
 
-        //Sort and get top films
-        JavaPairRDD<String, Iterable<String>> result = filmsGroupByAge.mapToPair(SORT_AND_TAKE);
+        //Sort and get top 10 films
+        JavaPairRDD<String, Iterable<String>> resultAgeFilms = filmsGroupByAge.mapToPair(sortAndTakeByAvgRating);
 
-        return result.collectAsMap();
-
-        //testsave
-        //result.saveAsTextFile("/home/kost/workspace/rating-films/src/main/resources/resultutest2/");
+        return resultAgeFilms.collectAsMap();
     }
-
 
 }

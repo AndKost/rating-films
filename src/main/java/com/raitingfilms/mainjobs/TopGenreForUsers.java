@@ -4,146 +4,84 @@ import com.raitingfilms.mainjobs.extra.AvgCount;
 import org.apache.spark.api.java.JavaPairRDD;
 import org.apache.spark.api.java.JavaRDD;
 import org.apache.spark.api.java.JavaSparkContext;
-import org.apache.spark.api.java.function.PairFunction;
+import org.apache.spark.api.java.function.PairFlatMapFunction;
 import scala.Tuple2;
 
 import java.io.Serializable;
+import java.util.ArrayList;
+import java.util.List;
 import java.util.Map;
 
 /**
  * Created by kost on 4/19/16.
  */
-public class TopGenreForUsers extends Job implements Serializable {
+public class TopGenreForUsers extends RatingJob implements Serializable {
 
     public TopGenreForUsers(JavaSparkContext context) {
         super(context);
     }
 
-
     public Map<String, Iterable<String>> run(String pathData, String pathItem) {
 
-        //Parse uData file and get (filmId, <userId, rating>)
+        //Parse u.data text file and get (filmId, <userId, startRating>)
+        //startRating is AvgCount class wich contain rating value and number
         JavaRDD<String> fileData = context.textFile(pathData);
 
-        //Parse uData file and get (filmId, <userId, rating>) userId - string for universe saving in mongoDB
-        JavaPairRDD<Integer, Tuple2<String, Integer>> filmratingPair = fileData.mapToPair(
+        //userId - string for universe saving in mongoDB
+        JavaPairRDD<Integer, Tuple2<String, AvgCount>> filmRatingPair = fileData.mapToPair(
                 (s) -> {
                         String[] row = s.split("\t");
                         String userId = row[0];
                         Integer filmId = Integer.parseInt(row[1]);
                         Integer rating = Integer.parseInt(row[2]);
-                        Tuple2<String, Integer> tmp = new Tuple2<String, Integer>(userId, rating);
-                        return new Tuple2<Integer, Tuple2<String, Integer>>(filmId, tmp);
+                        AvgCount startRating =  new AvgCount(rating, 1);
+                        Tuple2<String, AvgCount> tupleUserIdStartRat = new Tuple2<>(userId, startRating);
+                        return new Tuple2<>(filmId, tupleUserIdStartRat);
                     }
         );
 
-
-        //Parse from item idFilm genre get pair (idFilm, genre)
+        //Parse u.item text file and get pair (idFilm, genre). One film may be different genres
         JavaRDD<String> fileUItem = context.textFile(pathItem);
 
-        JavaPairRDD<Integer, String> filmGenrePair = fileUItem.mapToPair(
-                (s) -> {
-                        String[] row = s.split("\\|");
-                        Integer filmId = Integer.parseInt(row[0]);
-                        //Separate by genre
-                        if (row[5].equals("1")) {
-                            return new Tuple2<Integer, String>(filmId, "unknown");
-                        }
-                        if (row[6].equals("1")) {
-                            return new Tuple2<Integer, String>(filmId, "Action");
-                        }
-                        if (row[7].equals("1")) {
-                            return new Tuple2<Integer, String>(filmId, "Adventure");
-                        }
-                        if (row[8].equals("1")) {
-                            return new Tuple2<Integer, String>(filmId, "Animation");
-                        }
-                        if (row[9].equals("1")) {
-                            return new Tuple2<Integer, String>(filmId, "Children's");
-                        }
-                        if (row[10].equals("1")) {
-                            return new Tuple2<Integer, String>(filmId, "Comedy");
-                        }
-                        if (row[11].equals("1")) {
-                            return new Tuple2<Integer, String>(filmId, "Crime");
-                        }
-                        if (row[12].equals("1")) {
-                            return new Tuple2<Integer, String>(filmId, "Documentary");
-                        }
-                        if (row[13].equals("1")) {
-                            return new Tuple2<Integer, String>(filmId, "Drama");
-                        }
-                        if (row[14].equals("1")) {
-                            return new Tuple2<Integer, String>(filmId, "Fantasy");
-                        }
-                        if (row[15].equals("1")) {
-                            return new Tuple2<Integer, String>(filmId, "Film-Noir");
-                        }
-                        if (row[16].equals("1")) {
-                            return new Tuple2<Integer, String>(filmId, "Horror");
-                        }
-                        if (row[17].equals("1")) {
-                            return new Tuple2<Integer, String>(filmId, "Musical");
-                        }
-                        if (row[18].equals("1")) {
-                            return new Tuple2<Integer, String>(filmId, "Mystery");
-                        }
-                        if (row[19].equals("1")) {
-                            return new Tuple2<Integer, String>(filmId, "Romance");
-                        }
-                        if (row[20].equals("1")) {
-                            return new Tuple2<Integer, String>(filmId, "Sci-Fi");
-                        }
-                        if (row[21].equals("1")) {
-                            return new Tuple2<Integer, String>(filmId, "Thriller");
-                        }
-                        if (row[22].equals("1")) {
-                            return new Tuple2<Integer, String>(filmId, "War");
-                        }
+        JavaPairRDD<Integer, String> filmGenrePair = fileUItem.flatMapToPair(
+                (PairFlatMapFunction<String, Integer, String>) s -> {
 
-                        return new Tuple2<Integer, String>(filmId, "Western");
-                    }
-        );
+                    String[] row = s.split("\\|");
+                    Integer filmId = Integer.parseInt(row[0]);
 
+                    //Contain (filmId, genre). Film can have many genres
+                    List<Tuple2<Integer, String>> lstFilmIdGenre = new ArrayList<>();
 
+                    //List of genres for each film
+                    List<String> genresFilm = parseGenre(row);
 
-        //Left join replace idFilm to genre get (genre, <userid rating>)
-        JavaRDD<Tuple2<String, Tuple2<String, Integer> >> joinGenreKey = filmGenrePair.join(filmratingPair).values();
-
-        //Make key (<genre, userid> rating)
-        JavaPairRDD<Tuple2<String, String>, Integer> filmRatingPairs = joinGenreKey.mapToPair(
-                (s) -> {
-                        String genre = s._1();
-                        String userId = s._2()._1;
-                        Integer rating = s._2._2;
-                        Tuple2<String, String> tmpTuple = new Tuple2<String, String>(userId, genre);
-                        return new Tuple2<Tuple2<String, String>, Integer>(tmpTuple, rating);
+                    for (String genreIt : genresFilm) {
+                        lstFilmIdGenre.add(new Tuple2<>(filmId, genreIt));
                     }
 
+                    return lstFilmIdGenre;
+                }
         );
 
-        //Calculate average rating
-        JavaPairRDD<Tuple2<String, String>, AvgCount> avgCounts =
-                filmRatingPairs.combineByKey(createAcc, addAndCount, combine);
+        //Join for change filmId to genre and get (genre, <userId startRating>)
+        JavaRDD<Tuple2<String, Tuple2<String, AvgCount> >> joinGenreKey = filmGenrePair.join(filmRatingPair).values();
 
-        //Make key userId get (userId, <genre, avgRating>)
-        JavaPairRDD<String, Tuple2<String, AvgCount>> userIdKeyAvgRat = avgCounts.mapToPair(
-                (s) -> {
-                        String userId = s._1()._1;
-                        String genre = s._1()._2;
-                        AvgCount rating = s._2;
-                        Tuple2<String, AvgCount> tmpTuple = new Tuple2<String, AvgCount>(genre, rating);
-                        return new Tuple2<String, Tuple2<String, AvgCount>>(userId, tmpTuple);
-                    }
-        );
+        //Make key <genre, userid> for calculate average rating (<genre, userid> startRating)
+        JavaPairRDD<Tuple2<String, String>, AvgCount> genreUserIdKeyPairs = joinGenreKey.mapToPair(convertToStr1Str2KeyRat);
 
-        //Group by key
-        JavaPairRDD<String, Iterable<Tuple2<String, AvgCount>>> filmsGroupByAge = userIdKeyAvgRat.groupByKey();
+        //Calculate average rating for each film
+        JavaPairRDD<Tuple2<String, String>, AvgCount> resultAvgRating = genreUserIdKeyPairs.reduceByKey(reduceByKeyAvgRating);
+
+        //Make key userId  and get (userId, <genre, avgRating>)
+        JavaPairRDD<String, Tuple2<String, AvgCount>> userIdKeyAvgRat = resultAvgRating.mapToPair(convertToStrKeyStrRat);
+
+        //Collect genre for each user
+        JavaPairRDD<String, Iterable<Tuple2<String, AvgCount>>> genreGroupByUser = userIdKeyAvgRat.groupByKey();
 
         //Sort and get top genre
-        JavaPairRDD<String, Iterable<String>> result = filmsGroupByAge.mapToPair(SORT_AND_TAKE);
+        JavaPairRDD<String, Iterable<String>> userGenresResult = genreGroupByUser.mapToPair(sortAndTakeByAvgRating);
 
-        return result.collectAsMap();
+        return userGenresResult.collectAsMap();
     }
 
 

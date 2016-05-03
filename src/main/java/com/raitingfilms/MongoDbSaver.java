@@ -6,6 +6,7 @@ import com.raitingfilms.mainjobs.extra.AvgCount;
 import org.bson.Document;
 import scala.Tuple2;
 
+import java.text.DecimalFormat;
 import java.text.ParseException;
 import java.util.ArrayList;
 import java.util.List;
@@ -15,41 +16,45 @@ import java.util.Map;
  */
 public class MongoDbSaver {
 
-    public static MongoDatabase db;
-    public static MongoClient mongoClient;
+    public MongoClient mongoClient;
 
     private String nameDB = "ratingFilmsDB";
 
-    public String saveMap(Map<String, Iterable<String>> inputMap, String collectionName) {
+    public MongoDbSaver(String nameDB) {
+        mongoClient = new MongoClient();
+        //If want to save in other data base
+        this.nameDB = nameDB;
+    }
 
-        MongoClient mongoClient = new MongoClient();
+    public void saveMap(Map<String, Iterable<String>> inputMap, String collectionName) {
+
         MongoDatabase db = mongoClient.getDatabase(nameDB);
 
-        List<Document> documents = new ArrayList<Document>();
+        List<Document> recordValues = new ArrayList<>();
 
         for (Map.Entry<String, Iterable<String>> t : inputMap.entrySet()) {
             String key = t.getKey();
             Iterable<String> iterStr = t.getValue();
-            documents.add(new Document(key, iterStr));
+            recordValues.add(new Document(key, iterStr));
         }
-
-        db.getCollection(collectionName).insertMany(documents);
-        return "Recording is finish";
+        db.getCollection(collectionName).insertMany(recordValues);
     }
 
-    public String saveList(List<Tuple2<String, AvgCount>> listFilm, String collectionName) throws ParseException {
+    public void saveList(List<Tuple2<String, AvgCount>> listFilm, String collectionName) throws ParseException {
 
-        MongoClient mongoClient = new MongoClient();
-        MongoDatabase db = mongoClient.getDatabase(nameDB);
+        MongoDatabase ratingFilmsDB = mongoClient.getDatabase(nameDB);
 
-        List<Document> documents = new ArrayList<Document>();
+        List<Document> recordValues = new ArrayList<>();
 
-        for (Tuple2<String, AvgCount> t :listFilm) {
-            String filmName = t._1;
-            documents.add(new Document("nameFilm" , filmName));
+        for (Tuple2<String, AvgCount> recValTmp :listFilm) {
+            String filmTitle = recValTmp._1;
+            float avgRating = recValTmp._2.avg();
+            //Round avgRating to tenth
+            DecimalFormat df1 = new DecimalFormat("0.##");
+            String roundAvgRating = df1.format(avgRating);
+
+            recordValues.add(new Document(filmTitle, roundAvgRating));
         }
-        db.getCollection(collectionName).insertMany(documents);
-
-        return "Recording is finish";
+        ratingFilmsDB.getCollection(collectionName).insertMany(recordValues);
     }
 }
