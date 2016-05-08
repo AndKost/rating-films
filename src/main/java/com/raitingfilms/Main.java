@@ -30,6 +30,10 @@ public class Main {
         conroller.calcTopGenresByDiscussedByGender();
 
         conroller.calcTopGenresByDiscussedByOccupation();
+
+        conroller.calcTopFilmByYear();
+
+        conroller.calcThreLastGenreByUser();
     }
 
 

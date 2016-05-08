@@ -169,6 +169,8 @@ public class JobConroller {
         saver.savePairRDD(resByGender, "topGenresByDiscussedByUser", headerInfo);
     }
 
+
+
     //Top genres by most discussed films by occupation
     public void calcTopGenresByDiscussedByOccupation() throws ParseException {
         TopGenreByDiscussedByGender topGenresByOccupation = new TopGenreByDiscussedByGender(context);
@@ -178,7 +180,19 @@ public class JobConroller {
         headerInfo.add("occupation");
         headerInfo.add("genres");
 
-        saver.savePairRDD(resByOccupation, "topGenresByDiscussedByUser", headerInfo);
+        saver.savePairRDD(resByOccupation, "topGenresByDiscussedByOccupation", headerInfo);
+    }
+
+    //Top film by year
+    public void calcTopFilmByYear() throws ParseException {
+        TopFilmsByYear topFilmsByYear = new TopFilmsByYear(context);
+        JavaPairRDD<String, Iterable<String>> resByYear = topFilmsByYear.run(pathToData, pathToFilmInfo);
+
+        List<String> headerInfo = new ArrayList<>();
+        headerInfo.add("year");
+        headerInfo.add("films");
+
+        saver.savePairRDD(resByYear, "topFilmsByYear", headerInfo);
     }
 
 }
