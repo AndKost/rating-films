@@ -26,6 +26,10 @@ public class Main {
         conroller.calcMostDiscussedFilmsByOccupation();
 
         conroller.calcTopFilmsByYearByGenre();
+
+        conroller.calcTopGenresByDiscussedByGender();
+
+        conroller.calcTopGenresByDiscussedByOccupation();
     }
 
 

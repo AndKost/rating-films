@@ -23,7 +23,7 @@ public class TotalTopFilms extends RatingJob implements Serializable {
         super(context);
     }
 
-    public List<Tuple2<String, AvgCount>> run(String pathData, String pathItem) {
+    public JavaRDD<Tuple2<String, AvgCount>> run(String pathData, String pathItem) {
 
         JavaRDD<String> fileData = context.textFile(pathData);
 
@@ -42,8 +42,8 @@ public class TotalTopFilms extends RatingJob implements Serializable {
         //Join for change filmId to title and get pair (filmTitle, average rating for each film)
         JavaRDD<Tuple2<String, AvgCount>> joinPair = filmName.join(avgCounts).values();
 
-        //Sort by average rating and take 10 films
-        List<Tuple2<String, AvgCount>> topFilms = joinPair.takeOrdered(TOP_COUNT, new filmComparator());
+        //Swap to sort by average rating, sort and swap to back pairs (filmTitle, avgRating) and take 10 films
+        JavaRDD<Tuple2<String, AvgCount>> topFilms = (JavaRDD<Tuple2<String, AvgCount>>) joinPair.mapToPair(x -> x.swap()).sortByKey(false).mapToPair(x -> x.swap()).take(10);
 
         return topFilms;
     }

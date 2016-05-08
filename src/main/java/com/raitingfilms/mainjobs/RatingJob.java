@@ -4,6 +4,7 @@ import com.raitingfilms.mainjobs.extra.AvgCount;
 import com.raitingfilms.mainjobs.extra.ParseTextFile;
 import org.apache.spark.api.java.JavaSparkContext;
 import org.apache.spark.api.java.function.Function2;
+import org.apache.spark.api.java.function.PairFlatMapFunction;
 import org.apache.spark.api.java.function.PairFunction;
 import scala.Tuple2;
 
@@ -15,7 +16,7 @@ import java.util.*;
  */
 public class RatingJob extends ParseTextFile implements Serializable {
 
-    protected static JavaSparkContext context;
+    protected final JavaSparkContext context;
     protected static int TOP_COUNT = 5;
 
     public RatingJob(JavaSparkContext context) {
@@ -79,6 +80,36 @@ public class RatingJob extends ParseTextFile implements Serializable {
             Tuple2<String, AvgCount> tmpTuple = new Tuple2<>(strValTupleSecond, rating);
             return new Tuple2<>(strValTupleFirst, tmpTuple);
         };
+
+    //Convert pair from (String1, <Int1, Int2>) to (Int1,<String1, Int2>)
+    protected PairFunction<Tuple2<String, Tuple2<String, Integer>>, String, Tuple2<String, Integer>> convertToStr2KeyStr1Int =
+            (s) -> {
+                String strValFirst = s._1();
+                String intValTupleFirst = s._2()._1;
+                Integer intValTupleSecond = s._2._2;
+                Tuple2<String, Integer> tupleStrInt = new Tuple2<>(strValFirst, intValTupleSecond);
+                return new Tuple2<>(intValTupleFirst, tupleStrInt);
+            };
+
+    //Parse u.item text file and generate pair (filmId, genre)
+    protected PairFlatMapFunction<String, Integer, String> generateFilmIdGenrePairs =
+            (s) -> {
+
+                String[] row = s.split("\\|");
+                Integer filmId = Integer.parseInt(row[0]);
+
+                //Contain (filmId, genre). Film can have many genres
+                List<Tuple2<Integer, String>> lstFilmIdGenre = new ArrayList<>();
+
+                //List of genres for each film
+                List<String> genresFilm = parseGenre(row);
+
+                for (String genreIt : genresFilm) {
+                    lstFilmIdGenre.add(new Tuple2<>(filmId, genreIt));
+                }
+
+                return lstFilmIdGenre;
+            };
 
     //Get list of genre
     protected List<String> parseGenre(String[] row) {

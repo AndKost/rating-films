@@ -5,15 +5,16 @@ import com.raitingfilms.mainjobs.TopFilmsByAge;
 import com.raitingfilms.mainjobs.TopGenreForUsers;
 import com.raitingfilms.mainjobs.TotalTopFilms;
 import com.raitingfilms.mainjobs.extra.AvgCount;
-import com.raitingfilms.optionjobs.CountJob;
-import com.raitingfilms.optionjobs.TopAndDiscussedFilmsByOccupation;
-import com.raitingfilms.optionjobs.TopAndDiscussedFilmsByGender;
-import com.raitingfilms.optionjobs.TopRatingFilmsByReleaseDateByGenre;
+import com.raitingfilms.optionjobs.*;
+import org.apache.avro.generic.GenericData;
 import org.apache.spark.SparkConf;
+import org.apache.spark.api.java.JavaPairRDD;
+import org.apache.spark.api.java.JavaRDD;
 import org.apache.spark.api.java.JavaSparkContext;
 import scala.Tuple2;
 
 import java.text.ParseException;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 
@@ -40,78 +41,144 @@ public class JobConroller {
     //Total top rating
     public void calcTotalTopFilms() throws ParseException {
         TotalTopFilms totalFilmJob = new TotalTopFilms(context);
-        List<Tuple2<String, AvgCount>> resTitleFilmRating = totalFilmJob.run(pathToData, pathToFilmInfo);
+        JavaRDD<Tuple2<String, AvgCount>> resTitleFilmRating = totalFilmJob.run(pathToData, pathToFilmInfo);
 
-        saver.saveList(resTitleFilmRating, "totalTopFilm");
+        saver.saveTotalTopFilms(resTitleFilmRating, "totalTopFilm");
     }
 
     //Top films by genre
     public void calcTotalTopFilmsByGenre(){
         RatingByGenre filmsByGenreJob = new RatingByGenre(context);
-        Map<String, Iterable<String>> res = filmsByGenreJob.run(pathToData, pathToFilmInfo);
+        JavaPairRDD<String, Iterable<String>> res = filmsByGenreJob.run(pathToData, pathToFilmInfo);
 
-        saver.saveMap(res, "topFilmByGenre");
+        List<String> headerInfo = new ArrayList<>();
+        headerInfo.add("genre");
+        headerInfo.add("topFilms");
+        saver.savePairRDD(res, "topFilmByGenre", headerInfo);
     }
 
     //Top films by ages
     public void calcTotalTopFilmsByAge(){
         TopFilmsByAge topByAgeJob = new TopFilmsByAge(context);
-        Map<String, Iterable<String>> resAgeTitleFilm = topByAgeJob.run(pathToData, pathToFilmInfo, pathToUserInfo);
+        JavaPairRDD<String, Iterable<String>> resAgeTitleFilm = topByAgeJob.run(pathToData, pathToFilmInfo, pathToUserInfo);
 
-        saver.saveMap(resAgeTitleFilm, "topFilmByAge");
+        List<String> headerInfo = new ArrayList<>();
+        headerInfo.add("age");
+        headerInfo.add("topFilms");
+
+        saver.savePairRDD(resAgeTitleFilm, "topFilmByAge", headerInfo);
     }
 
     //Top genre by user
     public void calcTotalTopGenreByUsers(){
         TopGenreForUsers topGenreByUserJob = new TopGenreForUsers(context);
-        Map<String, Iterable<String>> res = topGenreByUserJob.run(pathToData, pathToFilmInfo);
+        JavaPairRDD<String, Iterable<String>> res = topGenreByUserJob.run(pathToData, pathToFilmInfo);
 
-        saver.saveMap(res, "topGenreByUser");
+        List<String> headerInfo = new ArrayList<>();
+        headerInfo.add("user");
+        headerInfo.add("topFilms");
+
+        saver.savePairRDD(res, "topGenreByUser", headerInfo);
     }
 
     //Top film by gender
     public void calcTopFilmsByGender() throws ParseException {
         boolean topRating = false;
         TopAndDiscussedFilmsByGender topByGenderJob = new TopAndDiscussedFilmsByGender(context, topRating);
-        Map<String, Iterable<String>> resGenderFilmRating = topByGenderJob.run(pathToData, pathToFilmInfo, pathToUserInfo);
+        JavaPairRDD<String, Iterable<String>> resGenderFilmRating = topByGenderJob.run(pathToData, pathToFilmInfo, pathToUserInfo);
 
-        saver.saveMap(resGenderFilmRating, "topFilmByGender");
+        List<String> headerInfo = new ArrayList<>();
+        headerInfo.add("gender");
+        headerInfo.add("topFilms");
+
+        saver.savePairRDD(resGenderFilmRating, "topFilmByGender", headerInfo);
     }
 
     //Most discussed film by gender
     public void calcMostDiscussedFilmsByGender() throws ParseException {
         boolean isMostDiscussed = true;
         TopAndDiscussedFilmsByGender topByGenderJob = new TopAndDiscussedFilmsByGender(context, isMostDiscussed);
-        Map<String, Iterable<String>> resGenderFilmRating = topByGenderJob.run(pathToData, pathToFilmInfo, pathToUserInfo);
+        JavaPairRDD<String, Iterable<String>> resGenderFilmRating = topByGenderJob.run(pathToData, pathToFilmInfo, pathToUserInfo);
 
-        saver.saveMap(resGenderFilmRating, "mostDiscussedFilmByGender");
+        List<String> headerInfo = new ArrayList<>();
+        headerInfo.add("gender");
+        headerInfo.add("mostDiscussedFilms");
+
+        saver.savePairRDD(resGenderFilmRating, "mostDiscussedFilmByGender", headerInfo);
     }
 
     //Top film by occupation
     public void calcTopFilmsByOccupation() throws ParseException {
         boolean topRating = false;
         TopAndDiscussedFilmsByOccupation topByOccupationJob = new TopAndDiscussedFilmsByOccupation(context, topRating);
-        Map<String, Iterable<String>> resOccupationFilmRating = topByOccupationJob.run(pathToData, pathToFilmInfo, pathToUserInfo);
+        JavaPairRDD<String, Iterable<String>> resOccupationFilmRating = topByOccupationJob.run(pathToData, pathToFilmInfo, pathToUserInfo);
 
-        saver.saveMap(resOccupationFilmRating, "topFilmByOccupation");
+        List<String> headerInfo = new ArrayList<>();
+        headerInfo.add("occupation");
+        headerInfo.add("topFilms");
+
+        saver.savePairRDD(resOccupationFilmRating, "topFilmByOccupation", headerInfo);
     }
 
     //Most discussed film by occupation
     public void calcMostDiscussedFilmsByOccupation() throws ParseException {
         boolean isMostDiscussed = true;
         TopAndDiscussedFilmsByOccupation mostDisByOccupationJob = new TopAndDiscussedFilmsByOccupation(context, isMostDiscussed);
-        Map<String, Iterable<String>> resOccupationMostDis = mostDisByOccupationJob.run(pathToData, pathToFilmInfo, pathToUserInfo);
+        JavaPairRDD<String, Iterable<String>> resOccupationMostDis = mostDisByOccupationJob.run(pathToData, pathToFilmInfo, pathToUserInfo);
 
-        saver.saveMap(resOccupationMostDis, "mostDiscussedFilmByOccupation");
+        List<String> headerInfo = new ArrayList<>();
+        headerInfo.add("occupation");
+        headerInfo.add("mostDiscussedFilms");
+
+        saver.savePairRDD(resOccupationMostDis, "mostDiscussedFilmByOccupation", headerInfo);
     }
 
     //Top rating films by release date by genre
     public void calcTopFilmsByYearByGenre() throws ParseException {
         TopRatingFilmsByReleaseDateByGenre mostDisByByYearByGenre = new TopRatingFilmsByReleaseDateByGenre(context);
-        Map<String, Iterable<String>> resByYearByGenre = mostDisByByYearByGenre.run(pathToData, pathToFilmInfo);
+        JavaPairRDD<String, Iterable<String>> resByYearByGenre = mostDisByByYearByGenre.run(pathToData, pathToFilmInfo);
 
-        saver.saveMap(resByYearByGenre, "topFilmByYearByGenre");
+        List<String> headerInfo = new ArrayList<>();
+        headerInfo.add("release date and genre");
+        headerInfo.add("topFilms");
+
+        saver.savePairRDD(resByYearByGenre, "topFilmByYearByGenre", headerInfo);
     }
 
+    //Three last genre by user
+    public void calcThreLastGenreByUser() throws ParseException {
+        ThreeLastGenresByUser lastGenres = new ThreeLastGenresByUser(context);
+        JavaPairRDD<String, Iterable<String>> resByUser = lastGenres.run(pathToData, pathToFilmInfo);
+
+        List<String> headerInfo = new ArrayList<>();
+        headerInfo.add("user");
+        headerInfo.add("genres");
+
+        saver.savePairRDD(resByUser, "lastGenreByUser", headerInfo);
+    }
+
+    //Top genres by most discussed films by gender
+    public void calcTopGenresByDiscussedByGender() throws ParseException {
+        TopGenreByDiscussedByGender topGenresByGender = new TopGenreByDiscussedByGender(context);
+        JavaPairRDD<String, Iterable<String>> resByGender = topGenresByGender.run(pathToData, pathToFilmInfo, pathToUserInfo);
+
+        List<String> headerInfo = new ArrayList<>();
+        headerInfo.add("gender");
+        headerInfo.add("genres");
+
+        saver.savePairRDD(resByGender, "topGenresByDiscussedByUser", headerInfo);
+    }
+
+    //Top genres by most discussed films by occupation
+    public void calcTopGenresByDiscussedByOccupation() throws ParseException {
+        TopGenreByDiscussedByGender topGenresByOccupation = new TopGenreByDiscussedByGender(context);
+        JavaPairRDD<String, Iterable<String>> resByOccupation = topGenresByOccupation.run(pathToData, pathToFilmInfo, pathToUserInfo);
+
+        List<String> headerInfo = new ArrayList<>();
+        headerInfo.add("occupation");
+        headerInfo.add("genres");
+
+        saver.savePairRDD(resByOccupation, "topGenresByDiscussedByUser", headerInfo);
+    }
 
 }

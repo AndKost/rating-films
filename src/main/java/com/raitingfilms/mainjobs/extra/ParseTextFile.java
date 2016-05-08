@@ -1,6 +1,5 @@
 package com.raitingfilms.mainjobs.extra;
 
-import com.raitingfilms.mainjobs.extra.AvgCount;
 import org.apache.spark.api.java.function.PairFunction;
 import scala.Tuple2;
 
@@ -55,5 +54,18 @@ public class ParseTextFile {
             String occupation = row[3];
             return new Tuple2<>(userId, occupation);
         };
+
+    //Parse u.data text file and get pairs (filmid, <userid, timestamp>)
+    protected PairFunction<String, Integer, Tuple2<String, Integer>> mapUdataItemIdKeyUserIdTimestamp =
+            (s) -> {
+                String[] row = s.split("\\|");
+                String userId = row[0];
+                Integer filmId = Integer.parseInt(row[1]);
+                Integer timestamp = Integer.parseInt(row[3]);
+                Tuple2<String, Integer> tupleUserIdTimeStamp = new Tuple2<>(userId, timestamp);
+                return new Tuple2<>(filmId, tupleUserIdTimeStamp);
+            };
+
+
 
 }

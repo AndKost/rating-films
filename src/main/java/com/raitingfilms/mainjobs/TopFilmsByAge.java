@@ -20,7 +20,7 @@ public class TopFilmsByAge extends RatingJob implements Serializable {
         super(context);
     }
 
-    public Map<String, Iterable<String>> run(String pathData, String pathItem, String pathUser) {
+    public JavaPairRDD<String, Iterable<String>> run(String pathData, String pathItem, String pathUser) {
 
         //Parse u.data text file and get pair (filmId <userID, startRating>) startRating is avgCount class contain rating and number
         //for calculate and compare average rating for each film
@@ -88,7 +88,7 @@ public class TopFilmsByAge extends RatingJob implements Serializable {
         //Sort and get top 10 films
         JavaPairRDD<String, Iterable<String>> resultAgeFilms = filmsGroupByAge.mapToPair(sortAndTakeByAvgRating);
 
-        return resultAgeFilms.collectAsMap();
+        return resultAgeFilms;
     }
 
 }

@@ -20,7 +20,7 @@ public class RatingByGenre extends RatingJob implements Serializable {
         super(context);
     }
 
-    public Map<String, Iterable<String>> run(String pathData, String pathItem) {
+    public JavaPairRDD<String, Iterable<String>> run(String pathData, String pathItem) {
 
         JavaRDD<String> fileData = context.textFile(pathData);
 
@@ -65,6 +65,6 @@ public class RatingByGenre extends RatingJob implements Serializable {
         //Sort and get top films
         JavaPairRDD<String, Iterable<String>> resultGenreFilms = filmsGroupByGenre.mapToPair(sortAndTakeByAvgRating);
 
-        return resultGenreFilms.collectAsMap();
+        return resultGenreFilms;
     }
 }

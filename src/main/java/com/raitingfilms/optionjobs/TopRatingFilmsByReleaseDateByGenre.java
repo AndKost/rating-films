@@ -1,6 +1,5 @@
 package com.raitingfilms.optionjobs;
 
-import com.raitingfilms.mainjobs.RatingJob;
 import com.raitingfilms.mainjobs.extra.AvgCount;
 import org.apache.spark.api.java.JavaPairRDD;
 import org.apache.spark.api.java.JavaRDD;
@@ -13,13 +12,13 @@ import java.util.*;
 /**
  * Created by kost on 5/2/16.
  */
-public class TopRatingFilmsByReleaseDateByGenre extends RatingJob {
+public class TopRatingFilmsByReleaseDateByGenre extends CountJob {
 
     public TopRatingFilmsByReleaseDateByGenre(JavaSparkContext context) {
         super(context);
     }
 
-    public Map<String, Iterable<String>> run(String pathData, String pathItem) {
+    public JavaPairRDD<String, Iterable<String>> run(String pathData, String pathItem) {
 
         JavaRDD<String> fileData = context.textFile(pathData);
 
@@ -34,7 +33,7 @@ public class TopRatingFilmsByReleaseDateByGenre extends RatingJob {
                     String[] row = s.split("\\|");
                     Integer filmId = Integer.parseInt(row[0]);
                     String filmTitle = row[1];
-                    String releaseDate = row[2];
+                    String releaseDate = parseYearFromDate(row[2]);
 
                     //Each film can contain many records
                     List<Tuple2<Integer, Tuple3<String, String, String>>> lstFilmIdTitleGenre = new ArrayList<>();
@@ -77,7 +76,6 @@ public class TopRatingFilmsByReleaseDateByGenre extends RatingJob {
         //Sort and get top films
         JavaPairRDD<String, Iterable<String>> resultGenreFilms = filmsGroupByYearGenre.mapToPair(sortAndTakeByAvgRating);
 
-        return resultGenreFilms.collectAsMap();
-
+        return resultGenreFilms;
     }
 }

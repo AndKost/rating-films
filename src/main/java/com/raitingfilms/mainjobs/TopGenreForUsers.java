@@ -21,7 +21,7 @@ public class TopGenreForUsers extends RatingJob implements Serializable {
         super(context);
     }
 
-    public Map<String, Iterable<String>> run(String pathData, String pathItem) {
+    public JavaPairRDD<String, Iterable<String>> run(String pathData, String pathItem) {
 
         //Parse u.data text file and get (filmId, <userId, startRating>)
         //startRating is AvgCount class wich contain rating value and number
@@ -81,7 +81,7 @@ public class TopGenreForUsers extends RatingJob implements Serializable {
         //Sort and get top genre
         JavaPairRDD<String, Iterable<String>> userGenresResult = genreGroupByUser.mapToPair(sortAndTakeByAvgRating);
 
-        return userGenresResult.collectAsMap();
+        return userGenresResult;
     }
 
 

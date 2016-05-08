@@ -8,7 +8,6 @@ import org.apache.spark.api.java.JavaSparkContext;
 import org.apache.spark.api.java.function.PairFunction;
 import scala.Tuple2;
 import java.io.Serializable;
-import java.util.Map;
 
 
 /**
@@ -27,7 +26,7 @@ public class TopAndDiscussedFilmsByGender extends RatingJob implements Serializa
             this.calcResultSortAndTake = CountJob.sortAndTakeByCntDis;
     }
 
-       public Map<String, Iterable<String>> run(String pathData, String pathItem, String pathUser) {
+       public JavaPairRDD<String, Iterable<String>> run(String pathData, String pathItem, String pathUser) {
 
         JavaRDD<String> fileData = context.textFile(pathData);
 
@@ -68,6 +67,6 @@ public class TopAndDiscussedFilmsByGender extends RatingJob implements Serializa
         //Sort and get top genre
         JavaPairRDD<String, Iterable<String>> result = filmsGroupByGender.mapToPair(calcResultSortAndTake);
 
-        return result.collectAsMap();
+        return result;
     }
 }

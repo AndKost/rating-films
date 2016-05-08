@@ -52,4 +52,47 @@ public class CountJob extends RatingJob {
                 return new Tuple2<>(frstVal, result);
             };
 
+    //Sort and take function for compare genre with timestamp
+    public PairFunction<Tuple2<String, Iterable<Tuple2<String, Integer>>>,  String, Iterable<String>> sortAndTakeByTimeStamp =
+            (PairFunction<Tuple2<String, Iterable<Tuple2<String, Integer>>>, String, Iterable<String>>) a -> {
+
+                 String userId = a._1();
+
+                //Sort and take top
+                Iterable<Tuple2<String, Integer>> filmTimestampIterable =  a._2();
+
+                List<Tuple2<String, Integer>> lstFilms = new ArrayList<>();
+                Iterator<Tuple2<String, Integer>> filmTimeIterator = filmTimestampIterable.iterator();
+
+                while (filmTimeIterator.hasNext()) {
+                    lstFilms.add(filmTimeIterator.next());
+                }
+
+                //Sort by timestamp
+                Collections.sort(lstFilms, (followGenreTime, nextGenreTime) -> {
+                    if (nextGenreTime._2() < followGenreTime._2()) return -1;
+                    if (nextGenreTime._2() > followGenreTime._2()) return 1;
+                    return 0;
+                });
+
+                Integer threeLastFilm = 3;
+
+                //Check count of result
+                if (lstFilms.size() >= threeLastFilm)
+                    lstFilms = lstFilms.subList(0, threeLastFilm);
+
+                List<String> result = new LinkedList<>();
+                for (Tuple2<String, Integer> t : lstFilms){
+                    result.add(t._1);
+                }
+
+                return new Tuple2<>(userId, result);
+            };
+
+    //Parse years from line, example from '02-Jan-1992' to '1992'
+    protected String parseYearFromDate(String fullDate) {
+        Integer startYear = 7;
+        Integer finishYear = 10;
+        return fullDate.substring(startYear, finishYear);
+    }
 }
