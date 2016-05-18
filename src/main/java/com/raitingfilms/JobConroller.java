@@ -41,7 +41,7 @@ public class JobConroller {
     //Total top rating
     public void calcTotalTopFilms() throws ParseException {
         TotalTopFilms totalFilmJob = new TotalTopFilms(context);
-        JavaRDD<Tuple2<String, AvgCount>> resTitleFilmRating = totalFilmJob.run(pathToData, pathToFilmInfo);
+        List<Tuple2<String, AvgCount>> resTitleFilmRating = totalFilmJob.run(pathToData, pathToFilmInfo);
 
         saver.saveTotalTopFilms(resTitleFilmRating, "totalTopFilm");
     }

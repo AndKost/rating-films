@@ -1,7 +1,6 @@
 package com.raitingfilms;
 
-import com.mongodb.BasicDBObjectBuilder;
-import com.mongodb.DBObject;
+import com.mongodb.*;
 import com.mongodb.hadoop.MongoOutputFormat;
 import com.raitingfilms.mainjobs.extra.AvgCount;
 import org.apache.hadoop.conf.Configuration;
@@ -24,28 +23,19 @@ public class MongoDbSaver {
         this.nameDB = nameDB;
     }
 
-    public void saveTotalTopFilms(JavaRDD<Tuple2<String, AvgCount>> listFilm, String collectionName) throws ParseException {
+    public void saveTotalTopFilms(List<Tuple2<String, AvgCount>> listFilm, String collectionName) throws ParseException {
 
-        // create BSON output RDD from predictions
-        JavaPairRDD<Object,BSONObject> predictions = listFilm.mapToPair(
-                s -> {
-                    DBObject doc = BasicDBObjectBuilder.start()
-                            .add("film title", s._1)
-                            .add("rating", s._2)
-                            .get();
-                    // null key means an ObjectId will be generated on insert
-                    return new Tuple2<Object, BSONObject>(null, doc);
-                }
-        );
+            MongoClient mongo = new MongoClient("localhost", 27017);
+            DB db = mongo.getDB(nameDB);
 
-        // create MongoDB output Configuration
-        Configuration outputConfig = new Configuration();
-        outputConfig.set("mongo.output.format", "com.mongodb.hadoop.MongoOutputFormat");
-        outputConfig.set("mongo.output.uri", "mongodb://localhost:27017/" + nameDB + "." + collectionName);
+            DBCollection collection = db.getCollection(collectionName);
 
-        predictions.saveAsNewAPIHadoopFile("file:///not-applicable",
-                Object.class, Object.class, MongoOutputFormat.class, outputConfig);
-
+            for (Tuple2<String, AvgCount> tFilm : listFilm){
+                BasicDBObject documentFilm = new BasicDBObject();
+                documentFilm.put("film title", tFilm._1);
+                documentFilm.put("rating", tFilm._2.avg());
+                collection.insert(documentFilm);
+            }
     }
 
     public void savePairRDD(JavaPairRDD<String, Iterable<String>> inputRDD, String collectionName, List<String> headerInfo) {
@@ -74,4 +64,7 @@ public class MongoDbSaver {
                 Object.class, Object.class, MongoOutputFormat.class, outputConfig);
 
     }
+
+
+
 }

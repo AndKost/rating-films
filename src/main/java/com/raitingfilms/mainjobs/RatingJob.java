@@ -16,7 +16,7 @@ import java.util.*;
  */
 public class RatingJob extends ParseTextFile implements Serializable {
 
-    protected final JavaSparkContext context;
+    protected static JavaSparkContext context;
     protected static int TOP_COUNT = 5;
 
     public RatingJob(JavaSparkContext context) {

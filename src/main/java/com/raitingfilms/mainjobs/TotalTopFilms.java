@@ -7,6 +7,7 @@ import org.apache.spark.api.java.JavaSparkContext;
 import scala.Tuple2;
 
 import java.io.Serializable;
+import java.util.Comparator;
 import java.util.List;
 
 /**
@@ -23,7 +24,7 @@ public class TotalTopFilms extends RatingJob implements Serializable {
         super(context);
     }
 
-    public JavaRDD<Tuple2<String, AvgCount>> run(String pathData, String pathItem) {
+    public List<Tuple2<String, AvgCount>> run(String pathData, String pathItem) {
 
         JavaRDD<String> fileData = context.textFile(pathData);
 
@@ -43,7 +44,7 @@ public class TotalTopFilms extends RatingJob implements Serializable {
         JavaRDD<Tuple2<String, AvgCount>> joinPair = filmName.join(avgCounts).values();
 
         //Swap to sort by average rating, sort and swap to back pairs (filmTitle, avgRating) and take 10 films
-        JavaRDD<Tuple2<String, AvgCount>> topFilms = (JavaRDD<Tuple2<String, AvgCount>>) joinPair.mapToPair(x -> x.swap()).sortByKey(false).mapToPair(x -> x.swap()).take(10);
+        List<Tuple2<String, AvgCount>> topFilms = joinPair.mapToPair(x -> x.swap()).sortByKey().mapToPair(x -> x.swap()).take(10);
 
         return topFilms;
     }

@@ -10,14 +10,14 @@ public class Main {
 
         conroller.calcTotalTopFilms();
 
-        conroller.calcTotalTopFilmsByGenre();
+       /* conroller.calcTotalTopFilmsByGenre();
 
         conroller.calcTotalTopGenreByUsers();
 
-        conroller.calcTotalTopFilmsByAge();
+        conroller.calcTotalTopFilmsByAge();*/
 
         //Option jobs
-        conroller.calcTopFilmsByGender();
+       /* conroller.calcTopFilmsByGender();
 
         conroller.calcMostDiscussedFilmsByGender();
 
@@ -33,7 +33,7 @@ public class Main {
 
         conroller.calcTopFilmByYear();
 
-        conroller.calcThreLastGenreByUser();
+        conroller.calcThreLastGenreByUser();*/
     }
 
 
