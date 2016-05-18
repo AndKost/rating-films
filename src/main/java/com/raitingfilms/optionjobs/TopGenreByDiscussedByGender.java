@@ -6,6 +6,9 @@ import org.apache.spark.api.java.JavaRDD;
 import org.apache.spark.api.java.JavaSparkContext;
 import scala.Tuple2;
 
+import java.util.ArrayList;
+import java.util.List;
+
 /**
  * Created by kost on 5/6/16.
  */
@@ -26,7 +29,23 @@ public class TopGenreByDiscussedByGender extends CountJob {
         JavaRDD<String> fileUItem = context.textFile(pathItem);
 
         //Parse from uitem text file and get pair (filmId, genre)
-        JavaPairRDD<Integer, String> filmTitlePair = fileUItem.flatMapToPair(generateFilmIdGenrePairs);
+        JavaPairRDD<Integer, String> filmTitlePair = fileUItem.flatMapToPair((s) -> {
+
+            String[] row = s.split("\\|");
+            Integer filmId = Integer.parseInt(row[0]);
+
+            //Contain (filmId, genre). Film can have many genres
+            List<Tuple2<Integer, String>> lstFilmIdGenre = new ArrayList<>();
+
+            //List of genres for each film
+            List<String> genresFilm = parseGenre(row);
+
+            for (String genreIt : genresFilm) {
+                lstFilmIdGenre.add(new Tuple2<>(filmId, genreIt));
+            }
+
+            return lstFilmIdGenre;
+        });
 
         //Join pairs to change filmId to genre and get (genre, <userId startRating>)
         JavaRDD<Tuple2<String, Tuple2<Integer, AvgCount>>> joinTitlerKey = filmTitlePair.join(filmIdUserIdRatingPair).values();

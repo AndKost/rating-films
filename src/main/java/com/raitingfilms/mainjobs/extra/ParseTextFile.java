@@ -58,7 +58,7 @@ public class ParseTextFile {
     //Parse u.data text file and get pairs (filmid, <userid, timestamp>)
     protected PairFunction<String, Integer, Tuple2<String, Integer>> mapUdataItemIdKeyUserIdTimestamp =
             (s) -> {
-                String[] row = s.split("\\|");
+                String[] row = s.split("\t");
                 String userId = row[0];
                 Integer filmId = Integer.parseInt(row[1]);
                 Integer timestamp = Integer.parseInt(row[3]);

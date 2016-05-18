@@ -78,7 +78,7 @@ public class CountJob extends RatingJob {
                 Integer threeLastFilm = 3;
 
                 //Check count of result
-                if (lstFilms.size() >= threeLastFilm)
+                if (lstFilms.size() > threeLastFilm)
                     lstFilms = lstFilms.subList(0, threeLastFilm);
 
                 List<String> result = new LinkedList<>();
@@ -91,8 +91,11 @@ public class CountJob extends RatingJob {
 
     //Parse years from line, example from '02-Jan-1992' to '1992'
     protected String parseYearFromDate(String fullDate) {
-        Integer startYear = 7;
+        Integer startYear = 6;
         Integer finishYear = 10;
-        return fullDate.substring(startYear, finishYear);
+
+        if (fullDate.length() > 1)
+            return fullDate.substring(startYear, finishYear);
+        return "unknown";
     }
 }

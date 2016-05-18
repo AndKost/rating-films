@@ -27,13 +27,13 @@ public class MongoDbSaver {
             MongoClient mongo = new MongoClient("localhost", 27017);
             DB db = mongo.getDB(nameDB);
 
-            DBCollection collection = db.getCollection(collectionName);
+            DBCollection  totalFilmscollection = db.getCollection(collectionName);
 
             for (Tuple2<String, AvgCount> tFilm : listFilm){
                 BasicDBObject documentFilm = new BasicDBObject();
                 documentFilm.put("film title", tFilm._1);
                 documentFilm.put("rating", tFilm._2.avg());
-                collection.insert(documentFilm);
+                totalFilmscollection.insert(documentFilm);
             }
     }
 

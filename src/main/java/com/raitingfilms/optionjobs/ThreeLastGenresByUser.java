@@ -5,6 +5,9 @@ import org.apache.spark.api.java.JavaRDD;
 import org.apache.spark.api.java.JavaSparkContext;
 import scala.Tuple2;
 
+import java.util.ArrayList;
+import java.util.List;
+
 /**
  * Created by kost on 5/4/16.
  */
@@ -24,7 +27,23 @@ public class ThreeLastGenresByUser extends CountJob {
         JavaRDD<String> fileUItem = context.textFile(pathItem);
 
         //Parse u.item text file and get pair (filmId, genre)
-        JavaPairRDD<Integer, String> filmGenrePair = fileUItem.flatMapToPair(generateFilmIdGenrePairs);
+        JavaPairRDD<Integer, String> filmGenrePair = fileUItem.flatMapToPair((s) -> {
+
+            String[] row = s.split("\\|");
+            Integer filmId = Integer.parseInt(row[0]);
+
+            //Contain (filmId, genre). Film can have many genres
+            List<Tuple2<Integer, String>> lstFilmIdGenre = new ArrayList<>();
+
+            //List of genres for each film
+            List<String> genresFilm = parseGenre(row);
+
+            for (String genreIt : genresFilm) {
+                lstFilmIdGenre.add(new Tuple2<>(filmId, genreIt));
+            }
+
+            return lstFilmIdGenre;
+        });
 
         //Join pairs to change filmId to gender and get (gender, <userId stimestamp>)
         JavaRDD<Tuple2<String, Tuple2<String, Integer>>> joinGenreKey = filmGenrePair.join(filmIdUserIdTimePair).values();
