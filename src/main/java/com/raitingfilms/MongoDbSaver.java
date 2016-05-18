@@ -5,7 +5,6 @@ import com.mongodb.hadoop.MongoOutputFormat;
 import com.raitingfilms.mainjobs.extra.AvgCount;
 import org.apache.hadoop.conf.Configuration;
 import org.apache.spark.api.java.JavaPairRDD;
-import org.apache.spark.api.java.JavaRDD;
 import org.bson.BSONObject;
 import scala.Tuple2;
 
